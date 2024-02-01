@@ -1,0 +1,2 @@
+# yuzu SSBU Optimizer
+
