@@ -1,6 +1,6 @@
 [package]
 name = "yuzu-ssbu-optimizer"
-version = "1.0.0"
+version = "1.1.0"
 description = "App to optimize and manage SSBU on the yuzu emulator"
 authors = ["saad-script"]
 default-run = "yuzu-ssbu-optimizer"

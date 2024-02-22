@@ -8,21 +8,22 @@
         <OptionCard class="mt-3 opt-card" :cardTitle="'SSBU Settings'"
           :cardSubtitle="'Optimize yuzu graphics and CPU settings for SSBU'" :cardDisplayIcon="'mdi-cog'"
           :isOptimized="user_status.settings_optimized && selected_profile != null"
-          @toggled="(s) => { optToggled('Settings', s) }" />
+          @updated="(s, o) => { optUpdated('Settings', s, o) }" />
         <OptionCard class="mt-3 opt-card" :cardTitle="'SSBU Mods'"
           :cardSubtitle="'Add useful mods for training and online play'" :cardDisplayIcon="'mdi-folder-wrench'"
           :isOptimized="user_status.mods_optimized && selected_profile != null"
-          @toggled="(s) => { optToggled('Mods', s) }" />
+          :advancedOptions="[{ id: 'CleanSkyline', label: 'Clean Skyline Plugins' }, { id: 'CleanArc', label: 'Clean Arcropolis Mods' }]"
+          @updated="(s, o) => { optUpdated('Mods', s, o) }" />
         <OptionCard class="mt-3 opt-card" :cardTitle="'Save Data'"
           :cardSubtitle="'Overwrite SSBU save with a 100% save for competitive play'"
           :cardDisplayIcon="'mdi-content-save-all'" :isOptimized="user_status.save_optimized && selected_profile != null"
-          @toggled="(s) => { optToggled('Save', s) }" />
+          @updated="(s, o) => { optUpdated('Save', s, o) }" />
 
         <v-card-item class="justify-center" style="padding-top: 25px;">
           <v-tooltip location="right" :disabled="selected_profile != null">
             <template v-slot:activator="{ props }">
               <div v-bind="props" class="d-inline-block">
-                <v-btn color="primary" :disabled="selected_profile == null" @click="optimize_selected">Optimized
+                <v-btn color="primary" :disabled="selected_profile == null" @click="optimize_selected">Optimize
                   Selected</v-btn>
               </div>
             </template>
@@ -31,10 +32,10 @@
         </v-card-item>
       </v-container>
       <div>
-          <v-snackbar v-for="(s, i) in snackbars" v-model="s.show" :key="i" :color="s.color" transition="fade-transition" :timeout="(s.timeout - 500)"
-            :style="{'margin-bottom':calcSnackbarMargin(i)}">
-            {{ s.text }}
-          </v-snackbar>
+        <v-snackbar v-for="(s, i) in snackbars" v-model="s.show" :key="i" :color="s.color" transition="fade-transition"
+          :timeout="(s.timeout - 500)" :style="{ 'margin-bottom': calcSnackbarMargin(i) }">
+          {{ s.text }}
+        </v-snackbar>
       </div>
     </v-main>
   </v-app>
@@ -57,9 +58,18 @@ export default {
         save_optimized: false,
       },
       selected_opts: {
-        "Settings": true,
-        "Mods": true,
-        "Save": true,
+        "Settings": {
+          enabled: true,
+          options: [],
+        },
+        "Mods": {
+          enabled: true,
+          options: [],
+        },
+        "Save": {
+          enabled: true,
+          options: [],
+        },
       },
       snackbars: [],
     };
@@ -95,14 +105,15 @@ export default {
       this.update_user_status()
       info('Selected Profile: ' + JSON.stringify(this.selected_profile));
     },
-    optToggled(key, selected) {
-      this.selected_opts[key] = selected;
-      info('Toggled Optimization: ' + JSON.stringify(this.selected_opts));
+    optUpdated(key, enabled, options) {
+      this.selected_opts[key].enabled = enabled;
+      this.selected_opts[key].options = options;
+      info('Optimization Updated: ' + JSON.stringify(this.selected_opts));
     },
     optimize_selected() {
-      for (const [key, selected] of Object.entries(this.selected_opts)) {
-        if (selected) {
-          const args = { userProfile: this.selected_profile, optimization: key };
+      for (const [key, data] of Object.entries(this.selected_opts)) {
+        if (data.enabled) {
+          const args = { userProfile: this.selected_profile, optimization: key, advancedOptions: data.options };
           invoke('apply_optimization', args).then(() => {
             info('Optimization Applied: ' + JSON.stringify(args));
             this.showSnackbar('Optimization Applied Successfully: ' + key, 3000, "green");
@@ -118,7 +129,7 @@ export default {
       return (i * 60) + 'px'
     },
     showSnackbar(message, timeout, color) {
-      const snackbar = {show: true, text: message, timeout: timeout, color: color}
+      const snackbar = { show: true, text: message, timeout: timeout, color: color }
       this.snackbars.push(snackbar);
       setTimeout(() => this.hideSnackbar(this.snackbars.length - 1), timeout);
     },

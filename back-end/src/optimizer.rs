@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use crate::config::{OptimizerConfig, SSBU_TITLE_ID};
+use crate::config::{AdvancedOption, OptimizerConfig, SSBU_TITLE_ID};
 use crate::profile::UserProfile;
 
 static BUNDLED_ARC_CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/bundled_data/arc_config");
@@ -55,7 +55,11 @@ pub fn optimize_settings(config: &OptimizerConfig) -> io::Result<()> {
     Ok(())
 }
 
-pub fn optimize_mods(config: &OptimizerConfig, user_profile: &UserProfile) -> io::Result<()> {
+pub fn optimize_mods(
+    config: &OptimizerConfig,
+    user_profile: &UserProfile,
+    advanced_options: Vec<AdvancedOption>,
+) -> io::Result<()> {
     let skyline_path = config
         .local_data
         .yuzu_folder
@@ -66,16 +70,30 @@ pub fn optimize_mods(config: &OptimizerConfig, user_profile: &UserProfile) -> io
         .join("contents")
         .join(SSBU_TITLE_ID);
 
-    let arc_config_path = config.get_arc_config_folder(&user_profile)?;
+    if advanced_options.contains(&AdvancedOption::CleanSkyline) {
+        if skyline_path.is_dir() {
+            log::info!("Removing skyline files...");
+            fs::remove_dir_all(skyline_path.as_path())?;
+        }
+    }
 
+    let arc_config_path = config.get_arc_config_folder(&user_profile)?;
     let arc_mods_path = config
         .local_data
         .yuzu_folder
         .as_ref()
         .ok_or(io_error!(NotFound, "yuzu folder not found"))?
         .join("sdmc")
-        .join("ultimate")
-        .join("mods");
+        .join("ultimate");
+
+    if advanced_options.contains(&AdvancedOption::CleanArc) {
+        if arc_mods_path.is_dir() {
+            log::info!("Removing arcropolis files...");
+            fs::remove_dir_all(arc_mods_path.as_path())?;
+        }
+    }
+
+    let arc_mods_path = arc_mods_path.join("mods");
 
     load_bundled_dir(&BUNDLED_SKYLINE, skyline_path)?;
 

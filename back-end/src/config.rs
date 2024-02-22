@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 pub const SSBU_TITLE_ID: &str = "01006A800016E000";
 
@@ -16,16 +15,10 @@ pub enum Optimization {
     Save,
 }
 
-impl FromStr for Optimization {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Settings" => Ok(Optimization::Settings),
-            "Mods" => Ok(Optimization::Mods),
-            "Save" => Ok(Optimization::Save),
-            _ => Err(()),
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AdvancedOption {
+    CleanSkyline,
+    CleanArc,
 }
 
 impl ToString for Optimization {

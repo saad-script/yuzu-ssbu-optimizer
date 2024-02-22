@@ -8,7 +8,7 @@ mod optimizer;
 mod profile;
 mod utils;
 
-use config::{LocalMetaData, Optimization, OptimizerConfig};
+use config::{AdvancedOption, LocalMetaData, Optimization, OptimizerConfig};
 use profile::UserProfile;
 use std::sync::Mutex;
 use tauri::api::dialog::blocking::FileDialogBuilder;
@@ -80,6 +80,7 @@ fn apply_optimization(
     state: tauri::State<AppState>,
     user_profile: UserProfile,
     optimization: Optimization,
+    advanced_options: Vec<AdvancedOption>,
 ) -> Result<(), String> {
     let mut state = state.0.lock().expect("Unable to acquire state lock");
     let config = state.as_mut().expect("Config should be loaded by now");
@@ -91,7 +92,7 @@ fn apply_optimization(
 
     let optimization_result = match optimization {
         Optimization::Settings => optimizer::optimize_settings(config),
-        Optimization::Mods => optimizer::optimize_mods(config, &user_profile),
+        Optimization::Mods => optimizer::optimize_mods(config, &user_profile, advanced_options),
         Optimization::Save => optimizer::optimize_save(config, &user_profile),
     };
     if optimization_result.is_err() {
