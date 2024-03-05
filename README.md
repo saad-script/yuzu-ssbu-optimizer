@@ -27,9 +27,8 @@ This app requires Microsoft Webview2 which should be installed on windows by def
   - This will add Atmosphere, Skyline, Arcropolis and all files required for modding and also several mods to increase performance and quality of life:
   - Hollow Bastion with the Eternal Heart mod (use this mod to maximize performance on Hollow Bastion)
   - CSS Preserve (to keep the same character after a set in LDN mode/offline)
-  - No Music Reset (when you press L+R+A in training mode, the music won't reset like it usually does)
   - One Slot Effects (This allows any effect mod to be used on multiple slots simultaneously, meaning they are not fake one-slot)
   - Training Mod Pack
   - The Latency Slider Mod 
-  - Allows you to reduce the added online latency
-  - Allows you to change the FPS from within the Yuzu emulator to reduce latency even further.
+    - Allows you to reduce the added online latency
+    - Allows you to change the FPS from within the Yuzu emulator to reduce latency even further.

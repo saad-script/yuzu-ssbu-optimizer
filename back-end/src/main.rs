@@ -22,7 +22,7 @@ use crate::config::UserStatus;
 
 struct AppState(Mutex<Option<OptimizerConfig>>);
 
-static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8; 1613664] =
+static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8; 1623480] =
     include_bytes!("../bundled_data/MicrosoftEdgeWebview2Setup.exe");
 
 fn main() {
