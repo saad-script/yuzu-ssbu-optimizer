@@ -11,6 +11,7 @@ mod utils;
 use config::{AdvancedOption, LocalMetaData, Optimization, OptimizerConfig};
 use profile::UserProfile;
 use std::sync::Mutex;
+use sysinfo::System;
 use tauri::api::dialog::blocking::FileDialogBuilder;
 use tauri::api::dialog::MessageDialogBuilder;
 use tauri::{AppHandle, Manager};
@@ -45,6 +46,7 @@ fn main() {
             log::info!("Loaded Config: {:#?}", loaded_config);
             *state.0.lock().expect("Unable to aquire state lock") = Some(loaded_config);
             check_webview_status(app.app_handle());
+            check_yuzu_not_running();
             Ok(())
         })
         .on_window_event(|event| match event.event() {
@@ -91,7 +93,7 @@ fn apply_optimization(
     );
 
     let optimization_result = match optimization {
-        Optimization::Settings => optimizer::optimize_settings(config),
+        Optimization::Settings => optimizer::optimize_settings(config, &user_profile),
         Optimization::Mods => optimizer::optimize_mods(config, &user_profile, advanced_options),
         Optimization::Save => optimizer::optimize_save(config, &user_profile),
     };
@@ -214,7 +216,7 @@ fn check_webview_status(app_handle: AppHandle) {
       {
         log::info!("Webview 2 not found on system! Prompting install message...");
         MessageDialogBuilder::new("Install Microsoft Webview2 Runtime", "This app requires Microsoft Webview2 Runtime. Install?")
-            .kind(tauri::api::dialog::MessageDialogKind::Info)
+            .kind(tauri::api::dialog::MessageDialogKind::Warning)
             .buttons(tauri::api::dialog::MessageDialogButtons::YesNo)
             .show(move |install| {
                 if install {
@@ -238,4 +240,31 @@ fn check_webview_status(app_handle: AppHandle) {
                 }
             });
       }
+}
+
+fn check_yuzu_not_running() {
+    let system = System::new_all();
+    if system
+        .processes_by_exact_name("yuzu.exe")
+        .peekable()
+        .peek()
+        .is_some()
+    {
+        log::info!(
+            "Detected yuzu at least one yuzu instance running. Prompting warning message..."
+        );
+        MessageDialogBuilder::new(
+            "Close yuzu Instances", 
+            "At least one yuzu instance is detected running on your system. The optimizer works best if yuzu is closed. Close all yuzu instances?")
+            .kind(tauri::api::dialog::MessageDialogKind::Warning)
+            .buttons(tauri::api::dialog::MessageDialogButtons::YesNo)
+            .show(move |terminate_yuzu| {
+                if terminate_yuzu {
+                    for process in system.processes_by_name("yuzu.exe") {
+                        log::info!("Killing yuzu instance: {} ({})", process.name(), process.pid());
+                        process.kill();
+                    }
+                }
+            });
+    }
 }

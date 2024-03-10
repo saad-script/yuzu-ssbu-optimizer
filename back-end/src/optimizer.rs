@@ -1,5 +1,6 @@
 use crate::utils::io_error;
 use include_dir::{include_dir, Dir};
+use ini::Ini;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -43,7 +44,7 @@ fn load_bundled_dir(bundled_dir: &Dir, target: PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-pub fn optimize_settings(config: &OptimizerConfig) -> io::Result<()> {
+pub fn optimize_settings(config: &OptimizerConfig, user_profile: &UserProfile) -> io::Result<()> {
     let ssbu_settings_path = config
         .local_data
         .yuzu_folder
@@ -52,6 +53,40 @@ pub fn optimize_settings(config: &OptimizerConfig) -> io::Result<()> {
         .join("config")
         .join("custom");
     load_bundled_dir(&BUNDLED_SSBU_SETTINGS, ssbu_settings_path)?;
+    let main_config_settings_path = config
+        .local_data
+        .yuzu_folder
+        .as_ref()
+        .ok_or(io_error!(NotFound, "yuzu folder not found"))?
+        .join("config")
+        .join("qt-config.ini");
+    let mut main_config = Ini::load_from_file_noescape(main_config_settings_path.as_path())
+        .ok()
+        .ok_or(io_error!(NotFound, "Unable to load main config"))?;
+    let section = main_config
+        .section_mut(Some("WebService"))
+        .ok_or(io_error!(
+            NotFound,
+            "Unable to find WebService section in config"
+        ))?;
+    section.insert("enable_telemetry\\default", "false");
+    section.insert("enable_telemetry", "false");
+    section.insert("web_api_url\\default", "false");
+    section.insert("web_api_url", "api.ynet-fun.xyz");
+    section.insert("yuzu_username\\default", "false");
+    section.insert("yuzu_username", user_profile.name.as_str());
+    section.insert("yuzu_token\\default", "false");
+    section.insert(
+        "yuzu_token",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    main_config
+        .write_to_file_policy(
+            main_config_settings_path.as_path(),
+            ini::EscapePolicy::Nothing,
+        )
+        .ok()
+        .ok_or(io_error!(NotFound, "Unable to save main config settings"))?;
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "yuzu-ssbu-optimizer"
-version = "1.1.1"
+version = "1.2.0"
 description = "App to optimize and manage SSBU on the yuzu emulator"
 authors = ["saad-script"]
 default-run = "yuzu-ssbu-optimizer"
@@ -21,6 +21,8 @@ log = "0.4.20"
 vectorize = "0.2.0"
 include_dir = "0.7.3"
 winreg = "0.52"
+rust-ini = "0.20.0"
+sysinfo = "0.30.7"
 
 [features]
 # by default Tauri runs in production mode
