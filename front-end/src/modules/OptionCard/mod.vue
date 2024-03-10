@@ -47,6 +47,15 @@ export default {
       selectedOptions: []
     };
   },
+  watch: {
+    isOptimized: {
+      immediate: true, 
+      handler (newVal, oldVal) {
+        this.isSelected = !newVal;
+        this.$emit('updated', this.isSelected, this.selectedOptions);
+      }
+    }
+  },
   methods: {
     toggle() {
       this.isSelected = !this.isSelected;
