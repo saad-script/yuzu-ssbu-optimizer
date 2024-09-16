@@ -13,20 +13,21 @@
   },
   "dependencies": {
     "@mdi/font": "7.2.96",
-    "@tauri-apps/api": "1.4.0",
+    "@tauri-apps/api": "^1.6.0",
     "path": "^0.12.7",
     "roboto-fontface": "0.10.0",
     "tauri-plugin-log-api": "https://github.com/tauri-apps/tauri-plugin-log",
     "unified-network": "0.6.4",
     "vue": "3.3.4",
-    "vuetify": "3.3.7"
+    "vuetify": "3.3.7",
+    "yarn": "^1.22.22"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "1.4.0",
+    "@tauri-apps/cli": "^1.6.2",
     "@vitejs/plugin-vue": "4.0.0",
     "cross-env": "7.0.3",
     "sass": "1.63.6",
-    "vite": "4.4.2",
+    "vite": "^4.5.3",
     "vite-plugin-vuetify": "1.0.2"
   },
   "main": "index.js"
