@@ -124,6 +124,7 @@ pub fn optimize_mods(
     if advanced_options.contains(&AdvancedOption::CleanArc) {
         if arc_mods_path.is_dir() {
             log::info!("Removing arcropolis files...");
+            fs::remove_dir_all(arc_config_path.as_path())?;
             fs::remove_dir_all(arc_mods_path.as_path())?;
         }
     }
