@@ -2,7 +2,7 @@
   "name": "yuzu-ssbu-optimizer",
   "description": "App to optimize and manage SSBU on the yuzu emulator",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
     "serve": "vite",
@@ -16,7 +16,7 @@
     "@tauri-apps/api": "^1.6.0",
     "path": "^0.12.7",
     "roboto-fontface": "0.10.0",
-    "tauri-plugin-log-api": "https://github.com/tauri-apps/tauri-plugin-log",
+    "tauri-plugin-log-api": "https://github.com/tauri-apps/tauri-plugin-log.git",
     "unified-network": "0.6.4",
     "vue": "3.3.4",
     "vuetify": "3.3.7",

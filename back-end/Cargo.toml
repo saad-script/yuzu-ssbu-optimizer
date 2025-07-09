@@ -1,6 +1,6 @@
 [package]
 name = "yuzu-ssbu-optimizer"
-version = "1.4.0"
+version = "1.5.0"
 description = "App to optimize and manage SSBU on the yuzu emulator"
 authors = ["saad-script"]
 default-run = "yuzu-ssbu-optimizer"
@@ -11,6 +11,8 @@ rust-version = "1.57"
 
 [build-dependencies]
 tauri-build = { version = "1.0.4", features = [] }
+reqwest = { version = "0.11", features = ["blocking", "rustls-tls"] }
+zip = "0.6"
 
 [dependencies]
 serde_json = "1.0"
