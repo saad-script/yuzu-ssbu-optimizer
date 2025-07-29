@@ -1,68 +1,47 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "yuzu-ssbu-optimizer",
+  "version": "1.5.0",
+  "identifier": "com.saad-script.yuzu-ssbu-optimizer",
   "build": {
-    "beforeBuildCommand": "",
-    "beforeDevCommand": "",
-    "devPath": "http://localhost:8080",
-    "distDir": "../dist"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:8080",
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "yuzu-ssbu-optimizer",
-    "version": "1.5.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "http": {
-        "all": true,
-        "request": true,
-        "scope": [
-          "https://**",
-          "http://**"
-        ]
-      },
-      "dialog": {
-        "all": true,
-        "ask": true,
-        "confirm": true,
-        "message": true,
-        "open": true,
-        "save": true
-      }
+  "bundle": {
+    "active": true,
+    "category": "DeveloperTool",
+    "copyright": "",
+    "externalBin": [],
+    "icon": [
+      "icons/yuzu-ssbu.ico",
+      "icons/yuzu-ssbu.png"
+    ],
+    "longDescription": "",
+    "resources": [],
+    "shortDescription": "",
+    "targets": "all",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
     },
-    "bundle": {
-      "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
+    "linux": {
       "deb": {
         "depends": []
-      },
-      "externalBin": [],
-      "icon": [
-        "icons/yuzu-ssbu.ico"
-      ],
-      "identifier": "com.saad-script.yuzu-ssbu-optimizer",
-      "longDescription": "",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
       }
     },
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    }
+  },
+  "app": {
     "security": {
-      "csp": null
-    },
-    "updater": {
-      "active": false
+      "capabilities": ["migrated"]
     },
     "windows": [
       {

@@ -6,8 +6,8 @@
           <v-icon size="large" icon="mdi-account-circle"></v-icon>
         </template>
         <template v-slot:append>
-          <StatusIcon :isCorrect="selectedUser != null && yuzuDataFolder != ''" :correctMessage="'Good to go!'"
-            :incorrectMessage="'Incorrect yuzu setup'" :location="'right'" />
+          <StatusIcon :isCorrect="selectedUser != null && emuDataFolder != ''" :correctMessage="'Good to go!'"
+            :incorrectMessage="'Incorrect Emulator Setup'" :location="'right'" />
         </template>
         <template v-slot:title>
           <v-card-title v-if="selectedUser">{{ this.selectedUser.name }}</v-card-title>
@@ -17,13 +17,13 @@
     </template>
 
     <template v-slot:default="{ isActive }">
-      <v-card prepend-icon="mdi-account-cog" title="Yuzu Setup">
+      <v-card prepend-icon="mdi-account-cog" title="Emulator Setup">
         <v-card-text>
-          <v-text-field :disabled="fileDialogOpened" readonly label="Select yuzu Data Folder" v-bind:model-value="yuzuDataFolder"
-            @click.prevent.capture.stop="selectYuzuDataFolder">
+          <v-text-field :disabled="fileDialogOpened" readonly label="Select Emulator Data Folder" v-bind:model-value="emuDataFolder"
+            @click.prevent.capture.stop="selectEmuDataFolder">
             <template v-slot:prepend>
-              <StatusIcon :isCorrect="yuzuDataFolder != ''" :correctMessage="'yuzu Folder Found'"
-                :incorrectMessage="'Incorrect yuzu Folder'" :location="'top'" />
+              <StatusIcon :isCorrect="emuDataFolder != ''" :correctMessage="'Emulator Data Folder Found'"
+                :incorrectMessage="'Incorrect Emulator Data Folder'" :location="'top'" />
             </template>
           </v-text-field>
         </v-card-text>
@@ -49,7 +49,7 @@
 
 
 <script>
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import { info, error } from "tauri-plugin-log-api";
 
 export default {
@@ -57,7 +57,7 @@ export default {
     return {
       config: null,
       fileDialogOpened: false,
-      yuzuDataFolder: "",
+      emuDataFolder: "",
       users: [],
       selectedUser: null,
     };
@@ -66,10 +66,10 @@ export default {
     init(config) {
       this.config = config;
       this.users = this.config.user_profiles;
-      if (this.config.local_data.yuzu_folder) {
-        this.yuzuDataFolder = this.config.local_data.yuzu_folder;
+      if (this.config.local_data.emu_folder) {
+        this.emuDataFolder = this.config.local_data.emu_folder;
       } else {
-        this.yuzuDataFolder = "";
+        this.emuDataFolder = "";
       }
       if (this.config.local_data.selected_user_profile) {
         this.selectedUser = this.config.local_data.selected_user_profile;
@@ -89,16 +89,17 @@ export default {
         this.selectedUser = null;
       })
     },
-    selectYuzuDataFolder() {
+    selectEmuDataFolder() {
       if (this.fileDialogOpened) {
         return;
       }
       this.fileDialogOpened = true;
-      invoke('select_yuzu_data_folder').then((config) => {
+      invoke('select_emu_data_folder').then((config) => {
         this.init(config);
-        info('New data folder selected: ' + JSON.stringify(this.config, null, 2));
+        info('New emulator data folder selected: ' + JSON.stringify(this.config, null, 2));
         this.fileDialogOpened = false;
       }).catch((err) => {
+        this.$root.showSnackbar(err, 3000, "red");
         this.fileDialogOpened = false;
         error(err);
       })

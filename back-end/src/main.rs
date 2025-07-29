@@ -12,53 +12,146 @@ use config::{AdvancedOption, LocalMetaData, Optimization, OptimizerConfig};
 use profile::UserProfile;
 use std::sync::Mutex;
 use sysinfo::System;
-use tauri::api::dialog::blocking::FileDialogBuilder;
-use tauri::api::dialog::MessageDialogBuilder;
+use tauri_plugin_dialog::DialogExt;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_log::LogTarget;
-use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
-use winreg::RegKey;
+use tauri_plugin_log::{Target, TargetKind, WEBVIEW_TARGET};
+
 
 use crate::config::UserStatus;
 
-struct AppState(Mutex<Option<OptimizerConfig>>);
+#[cfg(target_os = "windows")]
+mod windows {
+    pub use winreg::{RegKey, enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}};
+    pub static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8; 1657272] =
+        include_bytes!("../bundled_data/MicrosoftEdgeWebview2Setup.exe");
+}
 
-static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8; 1657272] =
-    include_bytes!("../bundled_data/MicrosoftEdgeWebview2Setup.exe");
+
+pub struct AppState {
+    pub app_handle: AppHandle,
+    pub config: Mutex<Option<OptimizerConfig>>
+}
+
+impl AppState {
+    pub fn check_web_engine_status(&self) {
+        #[cfg(target_os = "windows")]
+        if windows::RegKey::predef(windows::HKEY_LOCAL_MACHINE).open_subkey("SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // System-wide 64bit
+            && windows::RegKey::predef(windows::HKEY_LOCAL_MACHINE).open_subkey("SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // System-wide 32bit
+            && windows::RegKey::predef(windows::HKEY_CURRENT_USER).open_subkey("SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // User-wide 64bit&32bit
+        {
+            log::info!("Webview 2 not found on system! Prompting install message...");
+            let app_handle = self.app_handle.clone();
+            self.app_handle.dialog().message("Install Microsoft Webview2 Runtime")
+                .title("This app requires Microsoft Webview2 Runtime. Install?")
+                .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::YesNo)
+                .show(move |install| {
+                    if install {
+                        log::info!("Starting Webview2 install process...");
+                        std::fs::write("MicrosoftEdgeWebview2Setup.exe", windows::BUNDLED_WEBVIEW2_INSTALLER_DATA)
+                            .expect("Unable to write Webview2 installer to disk");
+                        std::process::Command::new("MicrosoftEdgeWebview2Setup.exe")
+                            .arg("/install")
+                            .spawn()
+                            .expect("Unable to start Webview2 installer process")
+                            .wait()
+                            .expect("Error running Webview2 installer"); 
+                        if std::fs::remove_file("MicrosoftEdgeWebview2Setup.exe").is_err() {
+                            log::warn!("Unable to clean up webview2 install artifacts");
+                        }
+                        log::info!("Restarting app...");
+                        app_handle.restart();
+                    } else {
+                        log::info!("Webview2 not found. Exiting app...");
+                        app_handle.exit(0);
+                    }
+                });
+        }
+    }
+
+    pub fn check_emu_not_running(&self) {
+        let emu_name = self.config.lock()
+            .expect("Unable to acquire state lock")
+            .as_ref()
+            .expect("Unable to get app handle")
+            .get_emulator_name();
+
+        #[cfg(target_os = "windows")]
+        let process_name = format!("{}.exe", emu_name);
+        #[cfg(not(target_os = "windows"))]
+        let process_name = emu_name.clone();
+
+        let system = System::new_all();
+        if system
+            .processes_by_exact_name(&process_name)
+            .peekable()
+            .peek()
+            .is_some()
+        {
+            log::info!(
+                "Detected at least one {} instance running. Prompting warning message...",
+                emu_name
+            );
+            self.app_handle.dialog().message(format!("Close {} Instances", emu_name))
+                .title(format!("At least one {} instance is detected running on your system. The optimizer works best if {} is closed. Close all {} instances?", emu_name, emu_name, emu_name))
+                .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::YesNo)
+                .show(move |terminate_emu| {
+                    if terminate_emu {
+                        for process in system.processes_by_name(&process_name) {
+                            log::info!("Killing {} instance: {} ({})", emu_name, process.name(), process.pid());
+                            process.kill();
+                        }
+                    }
+                });
+        }
+    }
+}
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::default()
-                .targets([LogTarget::Stdout, LogTarget::LogDir, LogTarget::Webview])
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::Webview),
+                    Target::new(TargetKind::LogDir { file_name: Some("webview".into()) }).filter(|metadata| metadata.target().starts_with(WEBVIEW_TARGET)),
+                    Target::new(TargetKind::LogDir { file_name: Some("rust".into()) }).filter(|metadata| !metadata.target().starts_with(WEBVIEW_TARGET)),
+                ])
                 .build(),
         )
-        .manage(AppState(Mutex::new(None)))
         .setup(|app| {
+            app.manage(
+                AppState {
+                    app_handle: app.app_handle().clone(),
+                    config: Mutex::new(None)
+                }
+            );
             let app_data_dir = app
-                .path_resolver()
+                .path()
                 .app_data_dir()
                 .expect("Unable to get app data directory");
             std::fs::create_dir_all(app_data_dir.as_path())
                 .expect("Unable to create app data directory");
             let state: tauri::State<AppState> = app.state();
-            let loaded_config = OptimizerConfig::load(app_data_dir.as_path());
+            let loaded_config = OptimizerConfig::load(app.app_handle().clone(), None);
             log::info!("Loaded Config: {:#?}", loaded_config);
-            *state.0.lock().expect("Unable to aquire state lock") = Some(loaded_config);
-            check_webview_status(app.app_handle());
-            check_yuzu_not_running();
+            *state.config.lock().expect("Unable to aquire state lock") = Some(loaded_config);
+            state.check_web_engine_status();
+            state.check_emu_not_running();
             Ok(())
         })
-        .on_window_event(|event| match event.event() {
+        .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { .. } => {
-                let app_data_dir = event
-                    .window()
+                let app_data_dir = window
                     .app_handle()
-                    .path_resolver()
+                    .path()
                     .app_data_dir()
                     .expect("Unable to get app data directory");
-                let state: tauri::State<AppState> = event.window().state();
-                let state = state.0.lock().expect("Unable to acquire state lock");
+                let state: tauri::State<AppState> = window.state();
+                let state = state.config.lock().expect("Unable to acquire state lock");
                 let config = state.as_ref().expect("Config should be loaded by now");
                 log::info!("Saving local data: {:#?}", config.local_data);
                 config.local_data.save(app_data_dir.as_path());
@@ -66,7 +159,7 @@ fn main() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
-            select_yuzu_data_folder,
+            select_emu_data_folder,
             update_selected_user,
             apply_optimization,
             get_user_status,
@@ -84,14 +177,13 @@ fn apply_optimization(
     optimization: Optimization,
     advanced_options: Vec<AdvancedOption>,
 ) -> Result<(), String> {
-    let mut state = state.0.lock().expect("Unable to acquire state lock");
-    let config = state.as_mut().expect("Config should be loaded by now");
+    let mut guard = state.config.lock().expect("Unable to acquire state lock");
+    let config = guard.as_mut().expect("Config should be loaded by now");
     log::info!(
         "Applying Optimization for user {}: {}",
         user_profile.name,
         optimization.to_string()
     );
-
     let optimization_result = match optimization {
         Optimization::Settings => optimizer::optimize_settings(config, &user_profile),
         Optimization::Mods => optimizer::optimize_mods(config, &user_profile, advanced_options),
@@ -131,7 +223,7 @@ fn apply_optimization(
 #[tauri::command]
 fn query_config(state: tauri::State<AppState>) -> OptimizerConfig {
     state
-        .0
+        .config
         .lock()
         .expect("Unable to acquire state lock")
         .as_ref()
@@ -143,7 +235,7 @@ fn query_config(state: tauri::State<AppState>) -> OptimizerConfig {
 #[tauri::command]
 fn query_metadata(state: tauri::State<AppState>) -> LocalMetaData {
     state
-        .0
+        .config
         .lock()
         .expect("Unable to acquire state lock")
         .as_ref()
@@ -153,37 +245,38 @@ fn query_metadata(state: tauri::State<AppState>) -> LocalMetaData {
 }
 
 #[tauri::command]
-async fn select_yuzu_data_folder(app_handle: tauri::AppHandle) -> Result<OptimizerConfig, String> {
+async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<OptimizerConfig, String> {
     let app_data_dir = app_handle
-        .path_resolver()
+        .path()
         .app_data_dir()
         .expect("Unable to get app data directory");
     let state: tauri::State<AppState> = app_handle.state();
-    let mut state = state.0.lock().expect("Unable to acquire state lock");
+    let mut state = state.config.lock().expect("Unable to acquire state lock");
     let config = state.as_mut().expect("Config should be loaded by now");
-    let yuzu_folder = config.local_data.yuzu_folder.as_ref();
-    let default_directory = tauri::api::path::data_dir().expect("Unable to find data directory");
-    let dialog_directory = yuzu_folder.unwrap_or(&default_directory);
-    let dialog_result = FileDialogBuilder::new()
-        .set_title("Select yuzu folder")
+    let emu_folder = config.local_data.emu_folder.as_ref();
+    let default_directory = app_handle.path().app_data_dir().expect("Unable to find data directory");
+    let dialog_directory = emu_folder.unwrap_or(&default_directory);
+    let dialog_result = app_handle.dialog().file()
+        .set_title("Select emulator data folder")
         .set_directory(dialog_directory)
-        .pick_folder();
+        .blocking_pick_folder();
     if let Some(f) = dialog_result {
-        let new_config = OptimizerConfig::from_data_folder(app_data_dir.as_path(), f);
-        if new_config.local_data.yuzu_folder.is_none() {
-            return Err(String::from("Incorrect yuzu folder specified"));
+        let folder = f.into_path().expect("Unable to read selection as folder path");
+        let new_config = OptimizerConfig::load(app_handle.clone(), Some(folder));
+        if new_config.local_data.emu_folder.is_none() {
+            return Err(String::from("Incorrect emulator data folder specified"));
         }
         *state = Some(new_config.clone());
         new_config.local_data.save(app_data_dir.as_path());
         return Ok(new_config);
     }
-    return Err(String::from("No yuzu folder specified"));
+    return Err(String::from("No emulator data folder specified"));
 }
 
 #[tauri::command]
 fn update_selected_user(state: tauri::State<AppState>, user_profile: Option<UserProfile>) {
     state
-        .0
+        .config
         .lock()
         .expect("Unable to acquire state lock")
         .as_mut()
@@ -195,7 +288,7 @@ fn update_selected_user(state: tauri::State<AppState>, user_profile: Option<User
 #[tauri::command]
 fn get_user_status(state: tauri::State<AppState>, user_profile: UserProfile) -> UserStatus {
     if let Some(status) = state
-        .0
+        .config
         .lock()
         .expect("Unable to acquire state lock")
         .as_ref()
@@ -207,64 +300,4 @@ fn get_user_status(state: tauri::State<AppState>, user_profile: UserProfile) -> 
         return status.clone();
     }
     UserStatus::default()
-}
-
-fn check_webview_status(app_handle: AppHandle) {
-    if RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey("SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // System-wide 64bit
-      && RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey("SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // System-wide 32bit
-      && RegKey::predef(HKEY_CURRENT_USER).open_subkey("SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // User-wide 64bit&32bit
-      {
-        log::info!("Webview 2 not found on system! Prompting install message...");
-        MessageDialogBuilder::new("Install Microsoft Webview2 Runtime", "This app requires Microsoft Webview2 Runtime. Install?")
-            .kind(tauri::api::dialog::MessageDialogKind::Warning)
-            .buttons(tauri::api::dialog::MessageDialogButtons::YesNo)
-            .show(move |install| {
-                if install {
-                    log::info!("Starting Webview2 install process...");
-                    std::fs::write("MicrosoftEdgeWebview2Setup.exe", BUNDLED_WEBVIEW2_INSTALLER_DATA)
-                        .expect("Unable to write Webview2 installer to disk");
-                    std::process::Command::new("MicrosoftEdgeWebview2Setup.exe")
-                        .arg("/install")
-                        .spawn()
-                        .expect("Unable to start Webview2 installer process")
-                        .wait()
-                        .expect("Error running Webview2 installer"); 
-                    if std::fs::remove_file("MicrosoftEdgeWebview2Setup.exe").is_err() {
-                        log::warn!("Unable to clean up webview2 install artifacts");
-                    }
-                    log::info!("Restarting app...");
-                    app_handle.restart();
-                } else {
-                    log::info!("Webview2 not found. Exiting app...");
-                    app_handle.exit(0);
-                }
-            });
-      }
-}
-
-fn check_yuzu_not_running() {
-    let system = System::new_all();
-    if system
-        .processes_by_exact_name("yuzu.exe")
-        .peekable()
-        .peek()
-        .is_some()
-    {
-        log::info!(
-            "Detected yuzu at least one yuzu instance running. Prompting warning message..."
-        );
-        MessageDialogBuilder::new(
-            "Close yuzu Instances", 
-            "At least one yuzu instance is detected running on your system. The optimizer works best if yuzu is closed. Close all yuzu instances?")
-            .kind(tauri::api::dialog::MessageDialogKind::Warning)
-            .buttons(tauri::api::dialog::MessageDialogButtons::YesNo)
-            .show(move |terminate_yuzu| {
-                if terminate_yuzu {
-                    for process in system.processes_by_name("yuzu.exe") {
-                        log::info!("Killing yuzu instance: {} ({})", process.name(), process.pid());
-                        process.kill();
-                    }
-                }
-            });
-    }
 }
