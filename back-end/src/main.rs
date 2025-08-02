@@ -8,14 +8,13 @@ mod optimizer;
 mod profile;
 mod utils;
 
-use config::{AdvancedOption, LocalMetaData, Optimization, OptimizerConfig};
+use config::{AdvancedOption, LocalPersistantData, Optimization, OptimizerConfig};
 use profile::UserProfile;
 use std::sync::Mutex;
 use sysinfo::System;
 use tauri_plugin_dialog::DialogExt;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_log::{Target, TargetKind, WEBVIEW_TARGET};
-
 
 use crate::config::UserStatus;
 
@@ -27,13 +26,13 @@ mod windows {
 }
 
 
-pub struct AppState {
+struct AppState {
     pub app_handle: AppHandle,
     pub config: Mutex<Option<OptimizerConfig>>
 }
 
 impl AppState {
-    pub fn check_web_engine_status(&self) {
+    fn check_web_engine_status(&self) {
         #[cfg(target_os = "windows")]
         if windows::RegKey::predef(windows::HKEY_LOCAL_MACHINE).open_subkey("SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // System-wide 64bit
             && windows::RegKey::predef(windows::HKEY_LOCAL_MACHINE).open_subkey("SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}").is_err() // System-wide 32bit
@@ -41,8 +40,9 @@ impl AppState {
         {
             log::info!("Webview 2 not found on system! Prompting install message...");
             let app_handle = self.app_handle.clone();
-            self.app_handle.dialog().message("Install Microsoft Webview2 Runtime")
-                .title("This app requires Microsoft Webview2 Runtime. Install?")
+            self.app_handle.dialog()
+                .message("This app requires Microsoft Webview2 Runtime. Install?")
+                .title("Install Microsoft Webview2 Runtime")
                 .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
                 .buttons(tauri_plugin_dialog::MessageDialogButtons::YesNo)
                 .show(move |install| {
@@ -69,17 +69,18 @@ impl AppState {
         }
     }
 
-    pub fn check_emu_not_running(&self) {
+    fn check_emu_not_running(&self) {
         let emu_name = self.config.lock()
             .expect("Unable to acquire state lock")
             .as_ref()
             .expect("Unable to get app handle")
             .get_emulator_name();
 
-        #[cfg(target_os = "windows")]
-        let process_name = format!("{}.exe", emu_name);
-        #[cfg(not(target_os = "windows"))]
-        let process_name = emu_name.clone();
+        let process_name = if cfg!(windows) {
+            format!("{}.exe", emu_name)
+        } else {
+            emu_name.clone()
+        };
 
         let system = System::new_all();
         if system
@@ -92,16 +93,19 @@ impl AppState {
                 "Detected at least one {} instance running. Prompting warning message...",
                 emu_name
             );
-            self.app_handle.dialog().message(format!("Close {} Instances", emu_name))
-                .title(format!("At least one {} instance is detected running on your system. The optimizer works best if {} is closed. Close all {} instances?", emu_name, emu_name, emu_name))
+            let app_handle = self.app_handle.clone();
+            self.app_handle.dialog()
+                .message(format!("At least one {} instance is detected running on your system. The optimizer works best if {} is closed. Close all {} instances?", emu_name, emu_name, emu_name))
+                .title(format!("Close {} Instances", emu_name))
                 .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
                 .buttons(tauri_plugin_dialog::MessageDialogButtons::YesNo)
                 .show(move |terminate_emu| {
                     if terminate_emu {
-                        for process in system.processes_by_name(&process_name) {
+                        for process in system.processes_by_exact_name(&process_name) {
                             log::info!("Killing {} instance: {} ({})", emu_name, process.name(), process.pid());
                             process.kill();
                         }
+                        app_handle.restart();
                     }
                 });
         }
@@ -136,7 +140,7 @@ fn main() {
             std::fs::create_dir_all(app_data_dir.as_path())
                 .expect("Unable to create app data directory");
             let state: tauri::State<AppState> = app.state();
-            let loaded_config = OptimizerConfig::load(app.app_handle().clone(), None);
+            let loaded_config = OptimizerConfig::load(app.app_handle().path(), None);
             log::info!("Loaded Config: {:#?}", loaded_config);
             *state.config.lock().expect("Unable to aquire state lock") = Some(loaded_config);
             state.check_web_engine_status();
@@ -163,7 +167,7 @@ fn main() {
             update_selected_user,
             apply_optimization,
             get_user_status,
-            query_metadata,
+            query_local_persistant_data,
             query_config,
         ])
         .run(tauri::generate_context!())
@@ -194,8 +198,8 @@ fn apply_optimization(
         return Err(optimization_result.unwrap_err().to_string());
     }
 
-    let metadata = &mut config.local_data;
-    match (optimization, metadata.user_statuses.get_mut(&user_profile)) {
+    let local_data = &mut config.local_data;
+    match (optimization, local_data.user_statuses.get_mut(&user_profile)) {
         (Optimization::Settings, Some(u)) => {
             u.settings_optimized = true;
         }
@@ -206,7 +210,7 @@ fn apply_optimization(
             u.save_optimized = true;
         }
         (o, None) => {
-            metadata.user_statuses.insert(
+            local_data.user_statuses.insert(
                 user_profile,
                 UserStatus {
                     settings_optimized: o == Optimization::Settings,
@@ -233,7 +237,7 @@ fn query_config(state: tauri::State<AppState>) -> OptimizerConfig {
 
 // should be called by the front-end only once, and then cached to avoid cloning too much
 #[tauri::command]
-fn query_metadata(state: tauri::State<AppState>) -> LocalMetaData {
+fn query_local_persistant_data(state: tauri::State<AppState>) -> LocalPersistantData {
     state
         .config
         .lock()
@@ -262,7 +266,7 @@ async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<Optimize
         .blocking_pick_folder();
     if let Some(f) = dialog_result {
         let folder = f.into_path().expect("Unable to read selection as folder path");
-        let new_config = OptimizerConfig::load(app_handle.clone(), Some(folder));
+        let new_config = OptimizerConfig::load(app_handle.path(), Some(folder));
         if new_config.local_data.emu_folder.is_none() {
             return Err(String::from("Incorrect emulator data folder specified"));
         }

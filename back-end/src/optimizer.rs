@@ -96,7 +96,10 @@ pub fn optimize_mods(
     user_profile: &UserProfile,
     advanced_options: Vec<AdvancedOption>,
 ) -> io::Result<()> {
-    let sdmc_path = config.get_sdmc_folder()?;
+    let sdmc_path = config.emu_filesystem
+        .sdmc_folder
+        .as_ref()
+        .ok_or(io_error!(NotFound, "Unable to find sdmc directory"))?;
     let skyline_path = sdmc_path
         .join("atmosphere")
         .join("contents")
