@@ -50,7 +50,7 @@
 
 <script>
 import { invoke } from '@tauri-apps/api/core';
-import { info, error } from "tauri-plugin-log-api";
+import { info, error } from "@tauri-apps/plugin-log";
 
 export default {
   data() {

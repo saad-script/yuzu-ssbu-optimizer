@@ -8,13 +8,13 @@ const PROFILE_USERNAME_SIZE: usize = 32;
 const MAX_USERS: usize = 8;
 
 type ProfileUsername = [u8; PROFILE_USERNAME_SIZE];
-type UUID = [u64; 2];
+type Uuid = [u64; 2];
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 struct UserRaw {
-    uuid: UUID,
-    uuid2: UUID,
+    uuid: Uuid,
+    uuid2: Uuid,
     timestamp: u64,
     username: ProfileUsername,
     _extra_data: [u8; 0x80],
@@ -55,7 +55,7 @@ impl UserProfile {
         format!("{:016X}{:016X}", uuid2, uuid1).to_string()
     }
     pub fn get_uuid_arc_storage_strings(&self) -> (String, String) {
-        (format!("{}", self.uuid[0]), format!("{}", self.uuid[1]))
+        (self.uuid[0].to_string(), self.uuid[1].to_string())
     }
 }
 
@@ -73,7 +73,10 @@ pub fn parse_user_profiles_save_file(nand_dir: &Path) -> io::Result<Vec<UserProf
         .join("su")
         .join("avators")
         .join("profiles.dat");
-    log::info!("Trying to use use profile data file: {:?}", user_profile_save);
+    log::info!(
+        "Trying to use use profile data file: {:?}",
+        user_profile_save
+    );
 
     let save = File::open(user_profile_save)?;
 

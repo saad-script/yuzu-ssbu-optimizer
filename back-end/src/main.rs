@@ -12,23 +12,25 @@ use config::{AdvancedOption, LocalPersistantData, Optimization, OptimizerConfig}
 use profile::UserProfile;
 use std::sync::Mutex;
 use sysinfo::System;
-use tauri_plugin_dialog::DialogExt;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_log::{Target, TargetKind, WEBVIEW_TARGET};
 
 use crate::config::UserStatus;
 
 #[cfg(target_os = "windows")]
 mod windows {
-    pub use winreg::{RegKey, enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}};
+    pub use winreg::{
+        enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
+        RegKey,
+    };
     pub static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8; 1657272] =
         include_bytes!("../bundled_data/MicrosoftEdgeWebview2Setup.exe");
 }
 
-
 struct AppState {
     pub app_handle: AppHandle,
-    pub config: Mutex<Option<OptimizerConfig>>
+    pub config: Mutex<Option<OptimizerConfig>>,
 }
 
 impl AppState {
@@ -70,7 +72,9 @@ impl AppState {
     }
 
     fn check_emu_not_running(&self) {
-        let emu_name = self.config.lock()
+        let emu_name = self
+            .config
+            .lock()
             .expect("Unable to acquire state lock")
             .as_ref()
             .expect("Unable to get app handle")
@@ -114,25 +118,32 @@ impl AppState {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::default()
+                .clear_targets()
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::Webview),
-                    Target::new(TargetKind::LogDir { file_name: Some("webview".into()) }).filter(|metadata| metadata.target().starts_with(WEBVIEW_TARGET)),
-                    Target::new(TargetKind::LogDir { file_name: Some("rust".into()) }).filter(|metadata| !metadata.target().starts_with(WEBVIEW_TARGET)),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("webview".into()),
+                    })
+                    .filter(|metadata| metadata.target().starts_with(WEBVIEW_TARGET)),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("rust".into()),
+                    })
+                    .filter(|metadata| !metadata.target().starts_with(WEBVIEW_TARGET)),
                 ])
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
                 .build(),
         )
         .setup(|app| {
-            app.manage(
-                AppState {
-                    app_handle: app.app_handle().clone(),
-                    config: Mutex::new(None)
-                }
-            );
+            app.manage(AppState {
+                app_handle: app.app_handle().clone(),
+                config: Mutex::new(None),
+            });
             let app_data_dir = app
                 .path()
                 .app_data_dir()
@@ -147,8 +158,8 @@ fn main() {
             state.check_emu_not_running();
             Ok(())
         })
-        .on_window_event(|window, event| match event {
-            tauri::WindowEvent::CloseRequested { .. } => {
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let app_data_dir = window
                     .app_handle()
                     .path()
@@ -160,7 +171,6 @@ fn main() {
                 log::info!("Saving local data: {:#?}", config.local_data);
                 config.local_data.save(app_data_dir.as_path());
             }
-            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             select_emu_data_folder,
@@ -186,7 +196,7 @@ fn apply_optimization(
     log::info!(
         "Applying Optimization for user {}: {}",
         user_profile.name,
-        optimization.to_string()
+        optimization
     );
     let optimization_result = match optimization {
         Optimization::Settings => optimizer::optimize_settings(config, &user_profile),
@@ -199,7 +209,10 @@ fn apply_optimization(
     }
 
     let local_data = &mut config.local_data;
-    match (optimization, local_data.user_statuses.get_mut(&user_profile)) {
+    match (
+        optimization,
+        local_data.user_statuses.get_mut(&user_profile),
+    ) {
         (Optimization::Settings, Some(u)) => {
             u.settings_optimized = true;
         }
@@ -258,14 +271,21 @@ async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<Optimize
     let mut state = state.config.lock().expect("Unable to acquire state lock");
     let config = state.as_mut().expect("Config should be loaded by now");
     let emu_folder = config.local_data.emu_folder.as_ref();
-    let default_directory = app_handle.path().app_data_dir().expect("Unable to find data directory");
+    let default_directory = app_handle
+        .path()
+        .app_data_dir()
+        .expect("Unable to find data directory");
     let dialog_directory = emu_folder.unwrap_or(&default_directory);
-    let dialog_result = app_handle.dialog().file()
+    let dialog_result = app_handle
+        .dialog()
+        .file()
         .set_title("Select emulator data folder")
         .set_directory(dialog_directory)
         .blocking_pick_folder();
     if let Some(f) = dialog_result {
-        let folder = f.into_path().expect("Unable to read selection as folder path");
+        let folder = f
+            .into_path()
+            .expect("Unable to read selection as folder path");
         let new_config = OptimizerConfig::load(app_handle.path(), Some(folder));
         if new_config.local_data.emu_folder.is_none() {
             return Err(String::from("Incorrect emulator data folder specified"));
@@ -274,7 +294,7 @@ async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<Optimize
         new_config.local_data.save(app_data_dir.as_path());
         return Ok(new_config);
     }
-    return Err(String::from("No emulator data folder specified"));
+    Err(String::from("No emulator data folder specified"))
 }
 
 #[tauri::command]

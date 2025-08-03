@@ -2,15 +2,14 @@ use crate::profile::{self, UserProfile};
 use crate::utils::io_error;
 use ini::Ini;
 use serde::{Deserialize, Serialize};
-use tauri::path::PathResolver;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
+use tauri::path::PathResolver;
 
 pub const DEFAULT_EMU: &str = "yuzu";
 pub const SSBU_TITLE_ID: &str = "01006A800016E000";
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Optimization {
@@ -25,12 +24,12 @@ pub enum AdvancedOption {
     CleanArc,
 }
 
-impl ToString for Optimization {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Optimization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Optimization::Settings => String::from("Settings"),
-            Optimization::Mods { .. } => String::from("Mods"),
-            Optimization::Save => String::from("Save"),
+            Optimization::Settings => write!(f, "Settings"),
+            Optimization::Mods => write!(f, "Mods"),
+            Optimization::Save => write!(f, "Save"),
         }
     }
 }
@@ -43,17 +42,20 @@ pub struct OptimizerConfig {
 }
 
 impl OptimizerConfig {
-    pub fn load<R: tauri::Runtime>(path_resolver: &PathResolver<R>, emu_folder: Option<PathBuf>) -> Self {
+    pub fn load<R: tauri::Runtime>(
+        path_resolver: &PathResolver<R>,
+        emu_folder: Option<PathBuf>,
+    ) -> Self {
         let data_dir = path_resolver
             .data_dir()
             .expect("Unable to get data directory");
         let app_data_dir = path_resolver
-                .app_data_dir()
-                .expect("Unable to get app data directory");
+            .app_data_dir()
+            .expect("Unable to get app data directory");
         let default_emu_folder = data_dir.join(DEFAULT_EMU);
         let mut local_data = LocalPersistantData::load(app_data_dir.as_path());
-        let emu_folder = emu_folder
-            .unwrap_or(local_data.emu_folder.clone().unwrap_or(default_emu_folder));
+        let emu_folder =
+            emu_folder.unwrap_or(local_data.emu_folder.clone().unwrap_or(default_emu_folder));
 
         let emu_filesystem = EmuFileSystem::load(emu_folder.as_path(), path_resolver);
 
@@ -63,11 +65,11 @@ impl OptimizerConfig {
             .and_then(|nf| profile::parse_user_profiles_save_file(nf.as_path()).ok());
 
         match user_profiles {
-            Some(u) => {
+            Some(user_profiles) => {
                 local_data.emu_folder = Some(emu_folder.to_path_buf());
-                if let Some(su) = local_data.selected_user_profile.as_ref() {
-                    if !u.contains(su) {
-                        if let Some(default_user) = u.get(0) {
+                if let Some(selected_user) = local_data.selected_user_profile.as_ref() {
+                    if !user_profiles.contains(selected_user) {
+                        if let Some(default_user) = user_profiles.first() {
                             local_data.selected_user_profile = Some(default_user.clone());
                         } else {
                             local_data.selected_user_profile = None;
@@ -75,35 +77,38 @@ impl OptimizerConfig {
                     }
                 }
                 OptimizerConfig {
-                    local_data: local_data,
-                    user_profiles: u,
-                    emu_filesystem: emu_filesystem,
+                    local_data,
+                    user_profiles,
+                    emu_filesystem,
                 }
             }
             _ => {
                 local_data.emu_folder = None;
                 local_data.selected_user_profile = None;
                 OptimizerConfig {
-                    local_data: local_data,
+                    local_data,
                     user_profiles: vec![],
-                    emu_filesystem: emu_filesystem,
+                    emu_filesystem,
                 }
             }
         }
     }
 
     pub fn get_emulator_name(&self) -> String {
-        let file_name = self.local_data.emu_folder
+        let file_name = self
+            .local_data
+            .emu_folder
             .as_ref()
             .and_then(|f| f.file_name())
             .map(|f| f.to_str())
             .and_then(|f| f)
             .unwrap_or(DEFAULT_EMU);
-        return file_name.to_string();
+        file_name.to_string()
     }
 
     pub fn get_save_folder(&self, user_profile: &UserProfile) -> io::Result<PathBuf> {
-        Ok(self.emu_filesystem
+        Ok(self
+            .emu_filesystem
             .nand_folder
             .as_ref()
             .ok_or(io_error!(NotFound, "Unable to find nand folder"))?
@@ -116,7 +121,8 @@ impl OptimizerConfig {
 
     pub fn get_arc_config_folder(&self, user_profile: &UserProfile) -> io::Result<PathBuf> {
         let uuids = user_profile.get_uuid_arc_storage_strings();
-        Ok(self.emu_filesystem
+        Ok(self
+            .emu_filesystem
             .sdmc_folder
             .as_ref()
             .ok_or(io_error!(NotFound, "Unable to find nand folder"))?
@@ -152,11 +158,10 @@ impl LocalPersistantData {
 
     pub fn load(app_data_dir: &Path) -> LocalPersistantData {
         let local_writer = File::open(app_data_dir.join("optimizer_data.json"));
-        let local_data = match local_writer {
+        match local_writer {
             Ok(f) => serde_json::from_reader(f).unwrap_or(LocalPersistantData::default()),
             _ => LocalPersistantData::default(),
-        };
-        local_data
+        }
     }
 }
 
@@ -168,21 +173,21 @@ pub struct EmuFileSystem {
 }
 
 impl EmuFileSystem {
-
     pub fn load<R: tauri::Runtime>(emu_folder: &Path, path_resolver: &PathResolver<R>) -> Self {
         let config_dir = if cfg!(windows) {
             emu_folder.join("config")
         } else {
-            let emu_name = emu_folder.file_name()
+            let emu_name = emu_folder
+                .file_name()
                 .and_then(|f| f.to_str())
                 .expect("Invalid emulator data folder");
-            path_resolver.config_dir()
+            path_resolver
+                .config_dir()
                 .map(|f| f.join(emu_name))
                 .expect("Unable to find config directory")
         };
 
-        let main_config_settings_path = config_dir
-            .join("qt-config.ini");
+        let main_config_settings_path = config_dir.join("qt-config.ini");
         let emu_config = Ini::load_from_file_noescape(main_config_settings_path.as_path());
         if emu_config.is_err() {
             return EmuFileSystem::default();
@@ -191,29 +196,44 @@ impl EmuFileSystem {
 
         let default_nand_dir = emu_folder.join("nand");
         let default_nand_dir = default_nand_dir.to_str();
-        let nand_dir = Self::get_emu_config_path(&emu_config, "Data%20Storage", "nand_directory", default_nand_dir);
+        let nand_dir = Self::get_emu_config_path(
+            &emu_config,
+            "Data%20Storage",
+            "nand_directory",
+            default_nand_dir,
+        );
 
         let default_sdmc_dir = emu_folder.join("sdmc");
         let default_sdmc_dir = default_sdmc_dir.to_str();
-        let sdmc_dir = Self::get_emu_config_path(&emu_config, "Data%20Storage", "sdmc_directory", default_sdmc_dir);
+        let sdmc_dir = Self::get_emu_config_path(
+            &emu_config,
+            "Data%20Storage",
+            "sdmc_directory",
+            default_sdmc_dir,
+        );
 
-        EmuFileSystem { 
+        EmuFileSystem {
             config_folder: Some(config_dir),
             nand_folder: nand_dir,
             sdmc_folder: sdmc_dir,
         }
     }
 
-    fn get_emu_config_path(ini: &ini::Ini, section: &str, key: &str, default: Option<&str>) -> Option<PathBuf> {
+    fn get_emu_config_path(
+        ini: &ini::Ini,
+        section: &str,
+        key: &str,
+        default: Option<&str>,
+    ) -> Option<PathBuf> {
         let section = ini.section(Some(section))?;
-        let use_default= section.get(format!("{}\\default", key))
-            .map(|b| b.parse().unwrap_or(false)).unwrap_or(false);
+        let use_default = section
+            .get(format!("{}\\default", key))
+            .map(|b| b.parse().unwrap_or(false))
+            .unwrap_or(false);
         let value = match use_default {
             true => default,
-            false => section.get(key)
+            false => section.get(key),
         };
-        return value.map(|v| PathBuf::from(v));
+        value.map(PathBuf::from)
     }
-
 }
-

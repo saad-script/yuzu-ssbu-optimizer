@@ -20,14 +20,15 @@
           @updated="(s, o) => { optUpdated('Save', s, o) }" />
 
         <v-card-item class="justify-center" style="padding-top: 25px;">
-          <v-tooltip location="right" :disabled="selected_profile != null">
+          <v-tooltip location="right" :disabled="selected_profile != null && isAnyOptsEnabled">
             <template v-slot:activator="{ props }">
               <div v-bind="props" class="d-inline-block">
-                <v-btn color="primary" :disabled="selected_profile == null" @click="optimizeSelected">Optimize
+                <v-btn color="primary" :disabled="selected_profile == null || !isAnyOptsEnabled" @click="optimizeSelected">Optimize
                   Selected</v-btn>
               </div>
             </template>
-            <span>Incorrect Emulator Setup</span>
+            <span v-if="selected_profile == null">Incorrect Emulator Setup</span>
+            <span v-if="!isAnyOptsEnabled">No Option Selected</span>
           </v-tooltip>
         </v-card-item>
       </v-container>
@@ -43,7 +44,7 @@
 
 <script>
 import { invoke } from '@tauri-apps/api/core';
-import { info, error } from "tauri-plugin-log-api";
+import { info, error } from "@tauri-apps/plugin-log";
 import { ref } from 'vue';
 
 
@@ -88,6 +89,15 @@ export default {
     }).catch((err) => {
       error(err);
     });
+  },
+  computed: {
+    isAnyOptsEnabled() {
+      return (
+        this.selected_opts.Settings.enabled ||
+        this.selected_opts.Mods.enabled ||
+        this.selected_opts.Save.enabled
+      )
+    }
   },
   methods: {
     updateUserStatus() {
