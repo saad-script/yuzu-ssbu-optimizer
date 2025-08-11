@@ -24,7 +24,7 @@ mod windows {
         enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
         RegKey,
     };
-    pub static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8; 1657272] =
+    pub static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8] =
         include_bytes!("../bundled_data/MicrosoftEdgeWebview2Setup.exe");
 }
 
@@ -118,7 +118,6 @@ impl AppState {
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(

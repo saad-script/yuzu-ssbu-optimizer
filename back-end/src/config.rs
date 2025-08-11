@@ -95,15 +95,11 @@ impl OptimizerConfig {
     }
 
     pub fn get_emulator_name(&self) -> String {
-        let file_name = self
-            .local_data
-            .emu_folder
+        self.emu_filesystem
+            .emu_name
             .as_ref()
-            .and_then(|f| f.file_name())
-            .map(|f| f.to_str())
-            .and_then(|f| f)
-            .unwrap_or(DEFAULT_EMU);
-        file_name.to_string()
+            .unwrap_or(&DEFAULT_EMU.to_string())
+            .to_string()
     }
 
     pub fn get_save_folder(&self, user_profile: &UserProfile) -> io::Result<PathBuf> {
@@ -167,6 +163,7 @@ impl LocalPersistantData {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct EmuFileSystem {
+    pub emu_name: Option<String>,
     pub config_folder: Option<PathBuf>,
     pub nand_folder: Option<PathBuf>,
     pub sdmc_folder: Option<PathBuf>,
@@ -174,16 +171,42 @@ pub struct EmuFileSystem {
 
 impl EmuFileSystem {
     pub fn load<R: tauri::Runtime>(emu_folder: &Path, path_resolver: &PathResolver<R>) -> Self {
-        let config_dir = if cfg!(windows) {
+        let mut is_local_user_emu_data_folder = false;
+        let emu_name = emu_folder
+            .file_name()
+            .map(|f| f.to_string_lossy().to_string())
+            .and_then(|f| {
+                if f.to_lowercase() == "user" {
+                    is_local_user_emu_data_folder = true;
+                    log::info!("Local 'user' emulator data folder found. Trying to find infer emulator name...");
+                    let exe_folder = emu_folder.parent()?;                    
+                    return std::fs::read_dir(exe_folder).ok()?.filter_map(|entry| {
+                        let entry = entry.ok()?;
+                        let path = entry.path();
+                        if (cfg!(windows) && path.extension()?.to_ascii_lowercase() == "exe")
+                            || (cfg!(not(windows)) && path.extension().is_none()) {
+                            let metadata = entry.metadata().ok()?;
+                            Some((metadata.len(), path.file_stem()?.to_string_lossy().into_owned()))
+                        } else {
+                            None
+                        }
+                    })
+                    .max_by_key(|&(size, _)| size)
+                    .map(|(_, stem)| stem);
+                }
+                Some(f)
+            });
+        if emu_name.is_none() {
+            return EmuFileSystem::default();
+        }
+        let emu_name = emu_name.unwrap();
+
+        let config_dir = if cfg!(windows) || is_local_user_emu_data_folder {
             emu_folder.join("config")
         } else {
-            let emu_name = emu_folder
-                .file_name()
-                .and_then(|f| f.to_str())
-                .expect("Invalid emulator data folder");
             path_resolver
                 .config_dir()
-                .map(|f| f.join(emu_name))
+                .map(|f| f.join(emu_name.as_str()))
                 .expect("Unable to find config directory")
         };
 
@@ -213,6 +236,7 @@ impl EmuFileSystem {
         );
 
         EmuFileSystem {
+            emu_name: Some(emu_name),
             config_folder: Some(config_dir),
             nand_folder: nand_dir,
             sdmc_folder: sdmc_dir,

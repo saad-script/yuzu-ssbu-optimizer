@@ -6,7 +6,7 @@
           <v-icon size="large" icon="mdi-account-circle"></v-icon>
         </template>
         <template v-slot:append>
-          <StatusIcon :isCorrect="selectedUser != null && emuDataFolder != ''" :correctMessage="'Good to go!'"
+          <StatusIcon :isCorrect="selectedUser != null && emuDataFolder != ''" :correctMessage="`${config.emu_filesystem.emu_name} Emulator Properly Configured`"
             :incorrectMessage="'Incorrect Emulator Setup'" :location="'right'" />
         </template>
         <template v-slot:title>
@@ -22,7 +22,7 @@
           <v-text-field :disabled="fileDialogOpened" readonly label="Select Emulator Data Folder" v-bind:model-value="emuDataFolder"
             @click.prevent.capture.stop="selectEmuDataFolder">
             <template v-slot:prepend>
-              <StatusIcon :isCorrect="emuDataFolder != ''" :correctMessage="'Emulator Data Folder Found'"
+              <StatusIcon :isCorrect="emuDataFolder != ''" :correctMessage="`${config.emu_filesystem.emu_name} Emulator Data Folder Found`"
                 :incorrectMessage="'Incorrect Emulator Data Folder'" :location="'top'" />
             </template>
           </v-text-field>
