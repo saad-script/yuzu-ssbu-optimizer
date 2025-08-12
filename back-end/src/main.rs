@@ -42,12 +42,11 @@ impl AppState {
                 .show(move |install| {
                     if install {
                         log::info!("Starting Webview2 install process...");
-                        std::fs::write(
-                            "MicrosoftEdgeWebview2Setup.exe",
-                            BUNDLED_WEBVIEW2_INSTALLER_DATA,
-                        )
-                        .expect("Unable to write Webview2 installer to disk");
-                        std::process::Command::new("MicrosoftEdgeWebview2Setup.exe")
+                        let webview_installer_path =
+                            std::path::Path::new("./MicrosoftEdgeWebview2Setup.exe");
+                        std::fs::write(webview_installer_path, BUNDLED_WEBVIEW2_INSTALLER_DATA)
+                            .expect("Unable to write Webview2 installer to disk");
+                        std::process::Command::new(webview_installer_path)
                             .arg("/install")
                             .spawn()
                             .expect("Unable to start Webview2 installer process")
@@ -74,8 +73,8 @@ impl AppState {
                 .message("This app requires webkit to be installed!")
                 .title("Webkit Not Installed")
                 .kind(tauri_plugin_dialog::MessageDialogKind::Error)
-                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCustom("Exit"))
-                .show(move || app_handle.exit(0));
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCustom("Exit".into()))
+                .show(move |_| app_handle.exit(0));
         }
     }
 
@@ -120,14 +119,12 @@ impl AppState {
     fn refresh_title(&self) {
         let config = self.get_config();
         let emu_name = config.get_emulator_name();
-        self.app_handle
-            .get_webview_window("main")
-            .and_then(|w| {
-                match w.set_title(format!("{} SSBU Optimizer", emu_name).as_str()) {
-                    Ok(_) => Some(w),
-                    Err(_) => None
-                }
-            });
+        self.app_handle.get_webview_window("main").and_then(|w| {
+            match w.set_title(format!("{} SSBU Optimizer", emu_name).as_str()) {
+                Ok(_) => Some(w),
+                Err(_) => None,
+            }
+        });
     }
 
     pub fn get_config(&self) -> OptimizerConfig {

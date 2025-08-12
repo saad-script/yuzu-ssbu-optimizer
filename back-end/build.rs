@@ -1,18 +1,29 @@
 use std::{env, fs, path::Path};
 
-const BUNDLED_DATA_URL: &str =
-    "https://drive.google.com/uc?export=download&id=1OVsIizFF1zZWNfoLiX5gzkzjNaaUbQET";
+const BUNDLED_DATA_FILE_ID: &str = "1OVsIizFF1zZWNfoLiX5gzkzjNaaUbQET";
 
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let bundled_data_zip_path = Path::new(&out_dir).join("bundled_data.zip");
 
+    let bundled_data_dir = Path::new(&out_dir).join("bundled_data");
+    if bundled_data_dir.is_dir() {
+        println!("Bundled data directory found. Deleting and redownloading...");
+        fs::remove_dir_all(bundled_data_dir).expect("Unable to delete bundled data directory");
+    }
+
     // Download the zip file
-    let mut resp = reqwest::blocking::get(BUNDLED_DATA_URL).expect("Failed to download zip");
+    let download_link = format!(
+        "https://drive.google.com/uc?export=download&id={}",
+        BUNDLED_DATA_FILE_ID
+    );
+    println!("Downloading data files from {}...", download_link);
+    let mut resp = reqwest::blocking::get(download_link).expect("Failed to download zip");
     let mut out = fs::File::create(&bundled_data_zip_path).expect("Failed to create zip file");
     resp.copy_to(&mut out).expect("Failed to copy content");
 
     // Extract it
+    println!("Extracting data files...");
     let mut zip_file = fs::File::open(&bundled_data_zip_path).expect("Cannot open zip");
     let mut archive = zip::ZipArchive::new(&mut zip_file).expect("Failed to read zip archive");
 
@@ -33,5 +44,6 @@ fn main() {
         }
     }
 
+    println!("Data files are ready to be bundled into application!");
     tauri_build::build()
 }
