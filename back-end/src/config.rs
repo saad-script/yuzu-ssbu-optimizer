@@ -176,14 +176,14 @@ impl EmuFileSystem {
             .file_name()
             .map(|f| f.to_string_lossy().to_string())
             .and_then(|f| {
-                if f.to_lowercase() == "user" {
+                if f.eq_ignore_ascii_case("user") {
                     is_local_user_emu_data_folder = true;
                     log::info!("Local 'user' emulator data folder found. Trying to find infer emulator name...");
-                    let exe_folder = emu_folder.parent()?;                    
+                    let exe_folder = emu_folder.parent()?;
                     return std::fs::read_dir(exe_folder).ok()?.filter_map(|entry| {
                         let entry = entry.ok()?;
                         let path = entry.path();
-                        if (cfg!(windows) && path.extension()?.to_ascii_lowercase() == "exe")
+                        if (cfg!(windows) && path.extension()?.eq_ignore_ascii_case("exe"))
                             || (cfg!(not(windows)) && path.extension().is_none()) {
                             let metadata = entry.metadata().ok()?;
                             Some((metadata.len(), path.file_stem()?.to_string_lossy().into_owned()))
