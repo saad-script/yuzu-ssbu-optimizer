@@ -6,7 +6,7 @@
           <v-icon size="large" icon="mdi-account-circle"></v-icon>
         </template>
         <template v-slot:append>
-          <StatusIcon :isCorrect="selectedUser != null && emuDataFolder != ''" :correctMessage="`${config.emu_filesystem.emu_name} Emulator Properly Configured`"
+          <StatusIcon :isCorrect="selectedUser != null && emuDataFolder != ''" :correctMessage="`${emuName} Emulator Properly Configured`"
             :incorrectMessage="'Incorrect Emulator Setup'" :location="'right'" />
         </template>
         <template v-slot:title>
@@ -22,7 +22,7 @@
           <v-text-field :disabled="fileDialogOpened" readonly label="Select Emulator Data Folder" v-bind:model-value="emuDataFolder"
             @click.prevent.capture.stop="selectEmuDataFolder">
             <template v-slot:prepend>
-              <StatusIcon :isCorrect="emuDataFolder != ''" :correctMessage="`${config.emu_filesystem.emu_name} Emulator Data Folder Found`"
+              <StatusIcon :isCorrect="emuDataFolder != ''" :correctMessage="`${emuName} Emulator Data Folder Found`"
                 :incorrectMessage="'Incorrect Emulator Data Folder'" :location="'top'" />
             </template>
           </v-text-field>
@@ -57,6 +57,7 @@ export default {
     return {
       config: null,
       fileDialogOpened: false,
+      emuName: null,
       emuDataFolder: "",
       users: [],
       selectedUser: null,
@@ -66,6 +67,11 @@ export default {
     init(config) {
       this.config = config;
       this.users = this.config.user_profiles;
+      if (this.config.emu_filesystem.emu_name) {
+        this.emuName = this.config.emu_filesystem.emu_name;
+      } else {
+        this.emuName = null;
+      }
       if (this.config.local_data.emu_folder) {
         this.emuDataFolder = this.config.local_data.emu_folder;
       } else {

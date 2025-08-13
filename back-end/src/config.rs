@@ -49,11 +49,8 @@ impl OptimizerConfig {
         let data_dir = path_resolver
             .data_dir()
             .expect("Unable to get data directory");
-        let app_data_dir = path_resolver
-            .app_data_dir()
-            .expect("Unable to get app data directory");
         let default_emu_folder = data_dir.join(DEFAULT_EMU);
-        let mut local_data = LocalPersistantData::load(app_data_dir.as_path());
+        let mut local_data = LocalPersistantData::load(path_resolver);
         let emu_folder =
             emu_folder.unwrap_or(local_data.emu_folder.clone().unwrap_or(default_emu_folder));
 
@@ -67,15 +64,10 @@ impl OptimizerConfig {
         match user_profiles {
             Some(user_profiles) => {
                 local_data.emu_folder = Some(emu_folder.to_path_buf());
-                if let Some(selected_user) = local_data.selected_user_profile.as_ref() {
-                    if !user_profiles.contains(selected_user) {
-                        if let Some(default_user) = user_profiles.first() {
-                            local_data.selected_user_profile = Some(default_user.clone());
-                        } else {
-                            local_data.selected_user_profile = None;
-                        }
-                    }
-                }
+                local_data.selected_user_profile = local_data
+                    .selected_user_profile
+                    .filter(|u| user_profiles.contains(u))
+                    .or_else(|| user_profiles.first().cloned());
                 OptimizerConfig {
                     local_data,
                     user_profiles,
@@ -146,13 +138,19 @@ pub struct LocalPersistantData {
 }
 
 impl LocalPersistantData {
-    pub fn save(&self, app_data_dir: &Path) {
+    pub fn save<R: tauri::Runtime>(&self, path_resolver: &PathResolver<R>) {
+        let app_data_dir = path_resolver
+            .app_data_dir()
+            .expect("Unable to find app data directory");
         let local_writer = File::create(app_data_dir.join("optimizer_data.json"))
             .expect("Unable to create local meta data file");
         serde_json::to_writer(local_writer, self).expect("Error writing local meta data to file");
     }
 
-    pub fn load(app_data_dir: &Path) -> LocalPersistantData {
+    pub fn load<R: tauri::Runtime>(path_resolver: &PathResolver<R>) -> LocalPersistantData {
+        let app_data_dir = path_resolver
+            .app_data_dir()
+            .expect("Unable to find app data directory");
         let local_writer = File::open(app_data_dir.join("optimizer_data.json"));
         match local_writer {
             Ok(f) => serde_json::from_reader(f).unwrap_or(LocalPersistantData::default()),

@@ -10,7 +10,7 @@ mod utils;
 
 use config::{AdvancedOption, LocalPersistantData, Optimization, OptimizerConfig};
 use profile::UserProfile;
-use std::sync::{Arc, RwLock};
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use sysinfo::System;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
@@ -24,7 +24,7 @@ pub static BUNDLED_WEBVIEW2_INSTALLER_DATA: &[u8] =
 
 struct AppState {
     app_handle: AppHandle,
-    config: Arc<RwLock<OptimizerConfig>>,
+    config: RwLock<OptimizerConfig>,
 }
 
 impl AppState {
@@ -73,13 +73,15 @@ impl AppState {
                 .message("This app requires webkit to be installed!")
                 .title("Webkit Not Installed")
                 .kind(tauri_plugin_dialog::MessageDialogKind::Error)
-                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCustom("Exit".into()))
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCustom(
+                    "Exit".into(),
+                ))
                 .show(move |_| app_handle.exit(0));
         }
     }
 
     fn check_emu_not_running(&self) {
-        let emu_name = self.get_config().get_emulator_name();
+        let emu_name = self.read_config().get_emulator_name();
         let process_name = if cfg!(windows) {
             format!("{}.exe", emu_name)
         } else {
@@ -117,7 +119,7 @@ impl AppState {
     }
 
     fn refresh_title(&self) {
-        let config = self.get_config();
+        let config = self.read_config();
         let emu_name = config.get_emulator_name();
         self.app_handle.get_webview_window("main").and_then(|w| {
             match w.set_title(format!("{} SSBU Optimizer", emu_name).as_str()) {
@@ -127,23 +129,20 @@ impl AppState {
         });
     }
 
-    pub fn get_config(&self) -> OptimizerConfig {
-        let state: tauri::State<AppState> = self.app_handle.state();
-        let config = state
+    pub fn read_config(&self) -> RwLockReadGuard<OptimizerConfig> {
+        let config = self
             .config
             .read()
-            .expect("Unable to acquire read lock on config")
-            .clone();
+            .expect("Unable to acquire read lock on config");
         config
     }
 
-    pub fn set_config(&self, config: OptimizerConfig) {
-        let state: tauri::State<AppState> = self.app_handle.state();
-        let mut config_guard = state
+    pub fn write_config(&self) -> RwLockWriteGuard<OptimizerConfig> {
+        let config = self
             .config
             .write()
-            .expect("Unable to acquire write lock on config");
-        *config_guard = config;
+            .expect("Unable to acquire read lock on config");
+        config
     }
 }
 
@@ -179,7 +178,7 @@ fn main() {
             let loaded_config = OptimizerConfig::load(app.app_handle().path(), None);
             app.manage(AppState {
                 app_handle: app.app_handle().clone(),
-                config: Arc::new(RwLock::new(loaded_config)),
+                config: RwLock::new(loaded_config),
             });
             let state: tauri::State<AppState> = app.state();
             state.refresh_title();
@@ -189,15 +188,10 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
-                let app_data_dir = window
-                    .app_handle()
-                    .path()
-                    .app_data_dir()
-                    .expect("Unable to get app data directory");
                 let state: tauri::State<AppState> = window.state();
-                let config = state.get_config();
+                let config = state.read_config();
                 log::info!("Saving local data: {:#?}", config.local_data);
-                config.local_data.save(app_data_dir.as_path());
+                config.local_data.save(window.app_handle().path());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -214,12 +208,13 @@ fn main() {
 
 #[tauri::command]
 fn apply_optimization(
-    state: tauri::State<AppState>,
+    app_handle: tauri::AppHandle,
     user_profile: UserProfile,
     optimization: Optimization,
     advanced_options: Vec<AdvancedOption>,
 ) -> Result<(), String> {
-    let mut config = state.get_config();
+    let state: tauri::State<AppState> = app_handle.state();
+    let mut config = state.write_config();
     log::info!(
         "Applying Optimization for user {}: {}",
         user_profile.name,
@@ -260,29 +255,30 @@ fn apply_optimization(
             );
         }
     }
+    config.local_data.save(app_handle.path());
     Ok(())
 }
 
 // should be called by the front-end only once, and then cached to avoid cloning too much
 #[tauri::command]
 fn query_config(state: tauri::State<AppState>) -> OptimizerConfig {
-    state.get_config()
+    state.read_config().clone()
 }
 
 // should be called by the front-end only once, and then cached to avoid cloning too much
 #[tauri::command]
 fn query_local_persistant_data(state: tauri::State<AppState>) -> LocalPersistantData {
-    state.get_config().local_data.clone()
+    state.read_config().local_data.clone()
 }
 
 #[tauri::command]
 async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<OptimizerConfig, String> {
     let state: tauri::State<AppState> = app_handle.state();
-    let config = state.get_config();
+    let config = state.read_config();
     let emu_folder = config.local_data.emu_folder.as_ref();
     let default_directory = app_handle
         .path()
-        .app_data_dir()
+        .data_dir()
         .expect("Unable to find data directory");
     let dialog_directory = emu_folder.unwrap_or(&default_directory);
     let dialog_result = app_handle
@@ -291,6 +287,7 @@ async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<Optimize
         .set_title("Select emulator data folder")
         .set_directory(dialog_directory)
         .blocking_pick_folder();
+    drop(config);
     if let Some(f) = dialog_result {
         let folder = f
             .into_path()
@@ -299,10 +296,12 @@ async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<Optimize
         if new_config.local_data.emu_folder.is_none() {
             return Err(String::from("Incorrect emulator data folder specified"));
         }
-        state.set_config(new_config);
+        new_config.local_data.save(app_handle.path());
+        let mut config = state.write_config();
+        *config = new_config.clone();
+        drop(config);
         state.refresh_title();
         state.check_emu_not_running();
-        let new_config = state.get_config();
         return Ok(new_config);
     }
     Err(String::from("No emulator data folder specified"))
@@ -310,13 +309,13 @@ async fn select_emu_data_folder(app_handle: tauri::AppHandle) -> Result<Optimize
 
 #[tauri::command]
 fn update_selected_user(state: tauri::State<AppState>, user_profile: Option<UserProfile>) {
-    state.get_config().local_data.selected_user_profile = user_profile;
+    state.write_config().local_data.selected_user_profile = user_profile;
 }
 
 #[tauri::command]
 fn get_user_status(state: tauri::State<AppState>, user_profile: UserProfile) -> UserStatus {
     if let Some(status) = state
-        .get_config()
+        .read_config()
         .local_data
         .user_statuses
         .get(&user_profile)
