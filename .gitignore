@@ -28,3 +28,5 @@ optimizer_data.json
 
 #bundled app data
 bundled_data/
+
+target/

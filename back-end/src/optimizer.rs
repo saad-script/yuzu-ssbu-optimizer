@@ -45,20 +45,13 @@ fn load_bundled_dir(bundled_dir: &Dir, target: PathBuf) -> io::Result<()> {
 }
 
 pub fn optimize_settings(config: &OptimizerConfig, user_profile: &UserProfile) -> io::Result<()> {
-    let ssbu_settings_path = config
-        .local_data
-        .yuzu_folder
-        .as_ref()
-        .ok_or(io_error!(NotFound, "yuzu folder not found"))?
-        .join("config")
+    let config_folder = config.emu_filesystem.config_folder.as_ref();
+    let ssbu_settings_path = config_folder
+        .ok_or(io_error!(NotFound, "Emulator config folder not found"))?
         .join("custom");
     load_bundled_dir(&BUNDLED_SSBU_SETTINGS, ssbu_settings_path)?;
-    let main_config_settings_path = config
-        .local_data
-        .yuzu_folder
-        .as_ref()
-        .ok_or(io_error!(NotFound, "yuzu folder not found"))?
-        .join("config")
+    let main_config_settings_path = config_folder
+        .ok_or(io_error!(NotFound, "Emulator config folder not found"))?
         .join("qt-config.ini");
     let mut main_config = Ini::load_from_file_noescape(main_config_settings_path.as_path())
         .ok()
@@ -69,15 +62,16 @@ pub fn optimize_settings(config: &OptimizerConfig, user_profile: &UserProfile) -
             NotFound,
             "Unable to find WebService section in config"
         ))?;
+    let emu_name = config.get_emulator_name();
     section.insert("enable_telemetry\\default", "false");
     section.insert("enable_telemetry", "false");
     section.insert("web_api_url\\default", "false");
     section.insert("web_api_url", "api.ynet-fun.xyz");
-    section.insert("yuzu_username\\default", "false");
-    section.insert("yuzu_username", user_profile.name.as_str());
-    section.insert("yuzu_token\\default", "false");
+    section.insert(format!("{}_username\\default", emu_name), "false");
+    section.insert(format!("{}_username", emu_name), user_profile.name.as_str());
+    section.insert(format!("{}_token\\default", emu_name), "false");
     section.insert(
-        "yuzu_token",
+        format!("{}_token", emu_name),
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     );
     main_config
@@ -95,38 +89,28 @@ pub fn optimize_mods(
     user_profile: &UserProfile,
     advanced_options: Vec<AdvancedOption>,
 ) -> io::Result<()> {
-    let skyline_path = config
-        .local_data
-        .yuzu_folder
+    let sdmc_path = config
+        .emu_filesystem
+        .sdmc_folder
         .as_ref()
-        .ok_or(io_error!(NotFound, "yuzu folder not found"))?
-        .join("sdmc")
+        .ok_or(io_error!(NotFound, "Unable to find sdmc directory"))?;
+    let skyline_path = sdmc_path
         .join("atmosphere")
         .join("contents")
         .join(SSBU_TITLE_ID);
 
-    if advanced_options.contains(&AdvancedOption::CleanSkyline) {
-        if skyline_path.is_dir() {
-            log::info!("Removing skyline files...");
-            fs::remove_dir_all(skyline_path.as_path())?;
-        }
+    if advanced_options.contains(&AdvancedOption::CleanSkyline) && skyline_path.is_dir() {
+        log::info!("Removing skyline files...");
+        fs::remove_dir_all(skyline_path.as_path())?;
     }
 
-    let arc_config_path = config.get_arc_config_folder(&user_profile)?;
-    let arc_mods_path = config
-        .local_data
-        .yuzu_folder
-        .as_ref()
-        .ok_or(io_error!(NotFound, "yuzu folder not found"))?
-        .join("sdmc")
-        .join("ultimate");
+    let arc_config_path = config.get_arc_config_folder(user_profile)?;
+    let arc_mods_path = sdmc_path.join("ultimate");
 
-    if advanced_options.contains(&AdvancedOption::CleanArc) {
-        if arc_mods_path.is_dir() {
-            log::info!("Removing arcropolis files...");
-            fs::remove_dir_all(arc_config_path.as_path())?;
-            fs::remove_dir_all(arc_mods_path.as_path())?;
-        }
+    if advanced_options.contains(&AdvancedOption::CleanArc) && arc_mods_path.is_dir() {
+        log::info!("Removing arcropolis files...");
+        fs::remove_dir_all(arc_config_path.as_path())?;
+        fs::remove_dir_all(arc_mods_path.as_path())?;
     }
 
     let arc_mods_path = arc_mods_path.join("mods");
@@ -141,7 +125,7 @@ pub fn optimize_mods(
 }
 
 pub fn optimize_save(config: &OptimizerConfig, user_profile: &UserProfile) -> io::Result<()> {
-    let save_file_path = config.get_save_folder(&user_profile)?;
+    let save_file_path = config.get_save_folder(user_profile)?;
     load_bundled_dir(&BUNDLED_SAVE_DATA, save_file_path)?;
     Ok(())
 }

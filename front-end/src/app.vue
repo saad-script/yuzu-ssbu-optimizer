@@ -6,7 +6,7 @@
         <ProfileView ref="profileView" class="mt-3" @profileChanged="profileSelected" />
 
         <OptionCard class="mt-3 opt-card" :cardTitle="'SSBU Settings'"
-          :cardSubtitle="'Optimize yuzu graphics and CPU settings for SSBU'" :cardDisplayIcon="'mdi-cog'"
+          :cardSubtitle="'Optimize emulator graphics and CPU settings for SSBU'" :cardDisplayIcon="'mdi-cog'"
           :isOptimized="user_status.settings_optimized && selected_profile != null"
           @updated="(s, o) => { optUpdated('Settings', s, o) }" />
         <OptionCard class="mt-3 opt-card" :cardTitle="'SSBU Mods'"
@@ -20,14 +20,15 @@
           @updated="(s, o) => { optUpdated('Save', s, o) }" />
 
         <v-card-item class="justify-center" style="padding-top: 25px;">
-          <v-tooltip location="right" :disabled="selected_profile != null">
+          <v-tooltip location="right" :disabled="selected_profile != null && isAnyOptsEnabled">
             <template v-slot:activator="{ props }">
               <div v-bind="props" class="d-inline-block">
-                <v-btn color="primary" :disabled="selected_profile == null" @click="optimize_selected">Optimize
+                <v-btn color="primary" :disabled="selected_profile == null || !isAnyOptsEnabled" @click="optimizeSelected">Optimize
                   Selected</v-btn>
               </div>
             </template>
-            <span>Incorrect yuzu Setup</span>
+            <span v-if="selected_profile == null">Incorrect Emulator Setup</span>
+            <span v-if="!isAnyOptsEnabled">No Option Selected</span>
           </v-tooltip>
         </v-card-item>
       </v-container>
@@ -42,8 +43,8 @@
 </template>
 
 <script>
-import { invoke } from '@tauri-apps/api/tauri';
-import { info, error } from "tauri-plugin-log-api";
+import { invoke } from '@tauri-apps/api/core';
+import { info, error } from "@tauri-apps/plugin-log";
 import { ref } from 'vue';
 
 
@@ -89,8 +90,17 @@ export default {
       error(err);
     });
   },
+  computed: {
+    isAnyOptsEnabled() {
+      return (
+        this.selected_opts.Settings.enabled ||
+        this.selected_opts.Mods.enabled ||
+        this.selected_opts.Save.enabled
+      )
+    }
+  },
   methods: {
-    update_user_status() {
+    updateUserStatus() {
       invoke('get_user_status', { userProfile: this.selected_profile }).then((status) => {
         info('Updated User Status: ' + JSON.stringify(status));
         this.user_status.settings_optimized = status.settings_optimized;
@@ -102,7 +112,7 @@ export default {
     },
     profileSelected(profile) {
       this.selected_profile = profile;
-      this.update_user_status()
+      this.updateUserStatus()
       info('Selected Profile: ' + JSON.stringify(this.selected_profile));
     },
     optUpdated(key, enabled, options) {
@@ -110,14 +120,14 @@ export default {
       this.selected_opts[key].options = options;
       info('Optimization Updated: ' + JSON.stringify(this.selected_opts));
     },
-    optimize_selected() {
+    optimizeSelected() {
       for (const [key, data] of Object.entries(this.selected_opts)) {
         if (data.enabled) {
           const args = { userProfile: this.selected_profile, optimization: key, advancedOptions: data.options };
           invoke('apply_optimization', args).then(() => {
             info('Optimization Applied: ' + JSON.stringify(args));
             this.showSnackbar('Optimization Applied Successfully: ' + key, 3000, "green");
-            this.update_user_status();
+            this.updateUserStatus();
           }).catch((err) => {
             error(err);
             this.showSnackbar('Error Applying Optimization: ' + key, 3000, "red");

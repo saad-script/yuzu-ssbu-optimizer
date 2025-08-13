@@ -1,0 +1,73 @@
+name: "Build"
+
+on:
+  push:
+    branches:
+      - build
+
+jobs:
+  test-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - platform: "macos-latest" # for Arm based macs (M1 and above).
+          #   args: "--target aarch64-apple-darwin"
+          # - platform: "macos-latest" # for Intel based macs.
+          #   args: "--target x86_64-apple-darwin"
+          - platform: "ubuntu-24.04"
+            name: "linux"
+            args: ""
+          - platform: "windows-latest"
+            name: "windows"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node and npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install Dependencies (Linux only)
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libappindicator3-dev librsvg2-dev patchelf \
+            libwebkit2gtk-4.1-0=2.44.0-2 \
+            libwebkit2gtk-4.1-dev=2.44.0-2 \
+            libjavascriptcoregtk-4.1-0=2.44.0-2 \
+            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
+            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
+            gir1.2-webkit2-4.1=2.44.0-2
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      # If tagName and releaseId are omitted tauri-action will only build the app and won't try to upload any assets.
+      - name: Build App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ matrix.args }}
+      
+      - name: Upload Artifacts 
+        uses: actions/upload-artifact@v4
+        with:
+          name: yuzu-ssbu-optimizer-${{ matrix.name }}
+          path: |
+            back-end/target/release/yuzu-ssbu-optimizer${{ matrix.platform == 'windows-latest' && '.exe' || '' }}
+            back-end/target/release/bundle/**/*.deb
+            back-end/target/release/bundle/**/*.AppImage
+            back-end/target/*/release/bundle/**/*.dmg
+            back-end/target/*/release/bundle/**/*.app
+            back-end/target/release/bundle/**/*.msi
+            back-end/target/release/bundle/**/*.exe
