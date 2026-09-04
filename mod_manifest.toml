@@ -151,12 +151,12 @@ enabled = true
 description = "Replaces the background in the Hollow Bastion stage to prevent frame drops and stutters"
 dependencies = ["Arcropolis"]
 install_to = [
-  ["(.*/)?config\\.json", "ultimate/mods/Eternal Heart/"],
-  ["(.*/)?info\\.toml", "ultimate/mods/Eternal Heart/"],
-  ["(.*/)?preview\\.webp", "ultimate/mods/Eternal Heart/"],
-  ["(.*/)?sound/.*", "ultimate/mods/Eternal Heart/"],
-  ["(.*/)?stage/.*", "ultimate/mods/Eternal Heart/"],
-  ["(.*/)?ui/.*", "ultimate/mods/Eternal Heart/"],
+  ["(.*/)?Eternal Heart/config\\.json", "ultimate/mods/Eternal Heart/"],
+  ["(.*/)?Eternal Heart/info\\.toml", "ultimate/mods/Eternal Heart/"],
+  ["(.*/)?Eternal Heart/preview\\.webp", "ultimate/mods/Eternal Heart/"],
+  ["(.*/)?Eternal Heart/sound", "ultimate/mods/Eternal Heart/"],
+  ["(.*/)?Eternal Heart/stage", "ultimate/mods/Eternal Heart/"],
+  ["(.*/)?Eternal Heart/ui", "ultimate/mods/Eternal Heart/"],
 ]
 [[mods.sources_options]]
 name = "Release"
@@ -175,9 +175,9 @@ install_to = [
   ["switch-package/(.*/)?libstage_alts\\.nro", "atmosphere/contents/01006A800016E000/romfs/skyline/plugins/"],
   ["switch-package/(.*/)?libstage_config\\.nro", "atmosphere/contents/01006A800016E000/romfs/skyline/plugins/"],
   ["switch-package/(.*/)?ultimate/stage-alts/hashes_all", "ultimate/stage-alts/"],
-  ["switch-package/(.*/)?ultimate/mods/hdr/.*", "ultimate/mods/hdr/"],
-  ["switch-package/(.*/)?ultimate/mods/hdr-assets/.*", "ultimate/mods/hdr-assets/"],
-  ["switch-package/(.*/)?ultimate/mods/hdr-stages/.*", "ultimate/mods/hdr-stages/"],
+  ["switch-package/(.*/)?ultimate/mods/hdr", "ultimate/mods/"],
+  ["switch-package/(.*/)?ultimate/mods/hdr-assets", "ultimate/mods/"],
+  ["switch-package/(.*/)?ultimate/mods/hdr-stages", "ultimate/mods/"],
 ]
 [[mods.sources_options]]
 name = "Release"
