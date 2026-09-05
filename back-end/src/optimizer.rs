@@ -515,11 +515,14 @@ fn install_mod_files(
     Ok(())
 }
 
-fn gamebanana_version_index(version: Option<&ManifestVersion>, mod_id: &str) -> io::Result<usize> {
+fn gamebanana_version_index(
+    version: Option<&ManifestVersion>,
+    mod_id: &str,
+) -> io::Result<Option<usize>> {
     match version {
-        None => Ok(0),
-        Some(ManifestVersion::Index(index)) => Ok(*index),
-        Some(ManifestVersion::Tag(tag)) => tag.parse::<usize>().map_err(|_| {
+        None => Ok(None),
+        Some(ManifestVersion::Index(index)) => Ok(Some(*index)),
+        Some(ManifestVersion::Tag(tag)) => tag.parse::<usize>().map(Some).map_err(|_| {
             io_error!(
                 InvalidData,
                 "GameBanana version for {} must be a non-negative integer index",
@@ -683,16 +686,28 @@ fn gamebanana_latest_asset(
         ));
     }
 
-    let latest = ordered_assets
-        .into_iter()
-        .nth(selected_index)
-        .map(|(_, asset)| asset)
-        .ok_or(io_error!(
-            InvalidData,
-            "GameBanana mod {} does not have file index {}",
-            mod_id,
-            selected_index
-        ))?;
+    let latest = if let Some(selected_index) = selected_index {
+        ordered_assets
+            .into_iter()
+            .nth(selected_index)
+            .map(|(_, asset)| asset)
+            .ok_or(io_error!(
+                InvalidData,
+                "GameBanana mod {} does not have file index {}",
+                mod_id,
+                selected_index
+            ))?
+    } else {
+        ordered_assets
+            .into_iter()
+            .last()
+            .map(|(_, asset)| asset)
+            .ok_or(io_error!(
+                InvalidData,
+                "GameBanana mod {} has no downloadable files",
+                mod_id
+            ))?
+    };
 
     Ok(vec![latest])
 }
