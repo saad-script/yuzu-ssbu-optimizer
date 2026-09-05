@@ -1,15 +1,15 @@
 {
-  "version": "4.0.0",
+  "version": "4.1.0",
   "notes": "",
-  "pub_date": "2026-06-30T17:26:00Z",
+  "pub_date": "2026-09-05T18:06:34Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSWjVCY05YVE1FN2wrTEQxNVJJeWZ0UlljK0pPVGlDc0J5b3YzRWc3T2ZYeFd0d1h3OWxEVS9rVUhFK3NzWmtJVE9HM0NXclM3MlJjbXF2ZDR6NXRRSFk5WmJTUnFybmdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyODQwMTk0CWZpbGU6c3NidS1lbXUtb3B0aW1pemVyXzQuMC4wX3g2NF9lbi1VUy5tc2kKM0cyWjZRcTVtNjIyN2NCblFrUEF5ZkRKRERvMlZQTzVMNXhsOGh4UmhDaFNOQTU3c1FhZ1EvQVpwV1c0QXowYkk2L09PTnh3dGlwNk96b01OSzdXQ2c9PQo=",
-      "url": "https://github.com/saad-script/ssbu-emu-optimizer/releases/download/4.0.0/ssbu-emu-optimizer_4.0.0_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSWjVCY05YVE1FN21GRUtneGZKNlg0ZDFIaW5wY0xPSGlJWElIMlQ0aklFSWgySEt0V1ZmZjRBYVJFSTZtK0VtSnI5SGJzV2tWUGw3M0cvWVJITFE1SkpJT3c4THhtSmdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NjMxMzc5CWZpbGU6c3NidS1lbXUtb3B0aW1pemVyXzQuMS4wX3g2NF9lbi1VUy5tc2kKdmdUcHdna0RNaVFpeERKd1hQYXV0aklRRlZkdFcrRndnWlE0bGdBcm8vekdLWC9FUWNvL2tMaksxOGNwTzg5cjVtenBFYVNQdWRPMHB3elppcHFnQ0E9PQo=",
+      "url": "https://github.com/saad-script/ssbu-emu-optimizer/releases/download/4.1.0/ssbu-emu-optimizer_4.1.0_x64_en-US.msi"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSWjVCY05YVE1FN2xFaWFCeXFHcDhkQkFSSFQzb2hSa2xqMHJnVkRVdEJMOTNJc25Dd24xS0dlcnFlOHJxUklLNXR3djc1QjJEM3dkRGdzS3pUMDM3cmwwd0hoOSt1OWdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyODM5OTQ5CWZpbGU6c3NidS1lbXUtb3B0aW1pemVyXzQuMC4wX2FtZDY0LkFwcEltYWdlCk0vZzFoZzYyYWRINEJzM3VlNzRTTkdEREszRDRrVGphaEVYcUVGUnpITGJ6L2REMU4xRmlsYmRiVCtKOHU5bS9Odmo1a3Y2WHd1RWhmUXJyZDFMbERnPT0K",
-      "url": "https://github.com/saad-script/ssbu-emu-optimizer/releases/download/4.0.0/ssbu-emu-optimizer_4.0.0_amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSWjVCY05YVE1FN3F4OEloRlBjZGhPYm90K1ZNT0owL29nUEhkZUVtMk1abHlTK0pDQmorSklyMmVELzVjMG9HQVVnblIyMTR5MHNHbXpZQVZ0eDJYcndJVVhTZnM2TndJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg4NjMxMTg3CWZpbGU6c3NidS1lbXUtb3B0aW1pemVyXzQuMS4wX2FtZDY0LkFwcEltYWdlCk5lWG9qSUc1Y3lyaHpQQmtVQTNUaE1TUzZHRDNiS2M1NEhPbFVzQXFJR1NCQjJpcXIrcm5zZU5FWHYwVXovVDZCd0NSbjBBemdTbUgxM2h2b2hxU0FnPT0K",
+      "url": "https://github.com/saad-script/ssbu-emu-optimizer/releases/download/4.1.0/ssbu-emu-optimizer_4.1.0_amd64.AppImage"
     }
   }
 }
