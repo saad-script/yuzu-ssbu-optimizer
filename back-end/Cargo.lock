@@ -4239,7 +4239,7 @@ dependencies = [
 
 [[package]]
 name = "ssbu-emu-optimizer"
-version = "4.0.0"
+version = "4.1.0"
 dependencies = [
  "include_dir",
  "log",
